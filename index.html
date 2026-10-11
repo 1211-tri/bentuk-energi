@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Petualangan Energi - Kelas 4</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #0a0e27;
+    color: #fff;
+    overflow: hidden;
+    user-select: none;
+  }
+  #app {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    max-width: 480px;
+    margin: 0 auto;
+    overflow: hidden;
+    background: radial-gradient(circle at 50% 0%, #1a237e 0%, #0a0e27 70%);
+  }
+
+  #glcanvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    opacity: 0.55;
+  }
+
+  /* ================= GAME SCREEN ================= */
+  #gameScreen {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: none;
+    flex-direction: column;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  #gameScreen.show { display: flex; }
+
+  header {
+    position: relative;
+    z-index: 2;
+    padding: 12px 14px 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .title {
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 0.3px;
+    background: linear-gradient(90deg, #ffd54f, #ff8a65, #4fc3f7);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .score-box {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 20px;
+    padding: 5px 12px;
+    font-size: 13px;
+    font-weight: 700;
+    backdrop-filter: blur(6px);
+  }
+  .score-box span { color: #ffd54f; }
+
+  .progress-wrap {
+    position: relative;
+    z-index: 2;
+    margin: 0 14px 8px;
+    height: 8px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 10px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #4fc3f7, #ffd54f, #ff8a65);
+    border-radius: 10px;
+    transition: width 0.5s ease;
+    box-shadow: 0 0 10px rgba(255,213,79,0.6);
+  }
+
+  .energy-grid {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    padding: 0 14px 8px;
+    flex-shrink: 0;
+  }
+  .energy-icon {
+    aspect-ratio: 1;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.05);
+    border: 1.5px solid rgba(255,255,255,0.1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    filter: grayscale(1) brightness(0.45);
+    transition: all 0.6s cubic-bezier(.2,.9,.3,1.4);
+    position: relative;
+    overflow: hidden;
+  }
+  .energy-icon .label {
+    font-size: 7.5px;
+    margin-top: 2px;
+    opacity: 0.7;
+    font-weight: 600;
+    text-align: center;
+    line-height: 1.1;
+  }
+  .energy-icon.active {
+    filter: grayscale(0) brightness(1);
+    background: rgba(255,255,255,0.15);
+    border-color: rgba(255,213,79,0.8);
+    box-shadow: 0 0 18px rgba(255,213,79,0.6), inset 0 0 12px rgba(255,255,255,0.15);
+    transform: scale(1.06);
+    animation: pop 0.6s ease;
+  }
+  @keyframes pop {
+    0% { transform: scale(0.8); }
+    60% { transform: scale(1.18); }
+    100% { transform: scale(1.06); }
+  }
+  .energy-icon.active .label { opacity: 1; color: #fff; }
+
+  /* Area soal - sekarang scrollable & tidak overflow */
+  .qa-area {
+    position: relative;
+    z-index: 2;
+    padding: 0 14px 16px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    min-height: 0;
+  }
+  .question-card {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 18px;
+    padding: 14px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    animation: slideUp 0.45s ease;
+  }
+  @keyframes slideUp {
+    from { transform: translateY(30px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  .q-text {
+    font-size: 14.5px;
+    line-height: 1.45;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: #fff;
+  }
+  .q-text .num {
+    display: inline-block;
+    background: linear-gradient(135deg, #4fc3f7, #7e57c2);
+    border-radius: 8px;
+    padding: 1px 8px;
+    margin-right: 6px;
+    font-size: 12px;
+  }
+  .options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .option {
+    background: rgba(255,255,255,0.07);
+    border: 1.5px solid rgba(255,255,255,0.15);
+    border-radius: 12px;
+    padding: 11px 13px;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: #e8eaf6;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: inherit;
+    width: 100%;
+  }
+  .option .bullet {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.1);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 800;
+    flex-shrink: 0;
+  }
+  .option:active { transform: scale(0.97); }
+  .option.correct {
+    background: rgba(76,175,80,0.28);
+    border-color: #66bb6a;
+    color: #fff;
+    animation: correctPulse 0.5s ease;
+  }
+  .option.wrong {
+    background: rgba(244,67,54,0.28);
+    border-color: #ef5350;
+    animation: shake 0.4s ease;
+  }
+  @keyframes correctPulse {
+    0%,100% { transform: scale(1); }
+    50% { transform: scale(1.04); }
+  }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    25% { transform: translateX(-7px); }
+    75% { transform: translateX(7px); }
+  }
+  .option.disabled { pointer-events: none; opacity: 0.65; }
+
+  .feedback {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    font-size: 12.5px;
+    line-height: 1.4;
+    display: none;
+    animation: slideUp 0.3s ease;
+  }
+  .feedback.show { display: block; }
+  .feedback.ok {
+    background: rgba(76,175,80,0.18);
+    border-left: 4px solid #66bb6a;
+    color: #c8e6c9;
+  }
+  .feedback.no {
+    background: rgba(244,67,54,0.18);
+    border-left: 4px solid #ef5350;
+    color: #ffcdd2;
+  }
+  .feedback b { color: #fff; }
+
+  .btn {
+    width: 100%;
+    padding: 13px;
+    border: none;
+    border-radius: 14px;
+    font-size: 14.5px;
+    font-weight: 800;
+    font-family: inherit;
+    cursor: pointer;
+    background: linear-gradient(135deg, #4fc3f7, #7e57c2);
+    color: #fff;
+    box-shadow: 0 6px 18px rgba(79,195,247,0.4);
+    transition: transform 0.15s ease;
+    margin-top: 10px;
+    letter-spacing: 0.3px;
+  }
+  .btn:active { transform: scale(0.96); }
+  .btn.hidden { display: none !important; }
+  .btn.gold {
+    background: linear-gradient(135deg, #ffd54f, #ff8a65);
+    color: #3e2723;
+    box-shadow: 0 6px 20px rgba(255,213,79,0.5);
+  }
+
+  /* ================= SCREENS ================= */
+  .screen {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 24px;
+    background: radial-gradient(circle at 50% 30%, #1a237e 0%, #0a0e27 75%);
+    overflow-y: auto;
+  }
+  .screen.hidden { display: none; }
+  .screen h1 {
+    font-size: 26px;
+    background: linear-gradient(90deg, #ffd54f, #4fc3f7, #ff8a65);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    margin: 0 0 8px;
+    font-weight: 900;
+    letter-spacing: 0.5px;
+  }
+  .screen p {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #c5cae9;
+    max-width: 320px;
+    margin: 0 0 20px;
+  }
+  .screen .emoji-big { font-size: 64px; margin-bottom: 10px; animation: float 3s ease-in-out infinite; }
+  @keyframes float {
+    0%,100% { transform: translateY(0); }
+    50% { transform: translateY(-12px); }
+  }
+  .stars { font-size: 34px; margin: 10px 0; letter-spacing: 4px; }
+
+  .restart-btn {
+    position: absolute;
+    top: 12px;
+    right: 14px;
+    z-index: 5;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 50%;
+    width: 34px; height: 34px;
+    color: #fff;
+    font-size: 15px;
+    cursor: pointer;
+    display: none;
+  }
+  .restart-btn.show { display: block; }
+
+  #confetti {
+    position: absolute;
+    inset: 0;
+    z-index: 9;
+    pointer-events: none;
+  }
+
+  .toast {
+    position: absolute;
+    top: 60px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-20px);
+    background: rgba(0,0,0,0.85);
+    color: #ffd54f;
+    padding: 8px 18px;
+    border-radius: 20px;
+    font-size: 12.5px;
+    font-weight: 700;
+    z-index: 20;
+    opacity: 0;
+    transition: all 0.4s ease;
+    pointer-events: none;
+    border: 1px solid rgba(255,213,79,0.4);
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* Overlay unlock audio */
+  .audio-hint {
+    position: absolute;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    color: #90caf9;
+    background: rgba(0,0,0,0.5);
+    padding: 5px 12px;
+    border-radius: 20px;
+    z-index: 21;
+    border: 1px solid rgba(144,202,249,0.3);
+    transition: opacity 0.4s;
+  }
+  .audio-hint.hidden { opacity: 0; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <canvas id="glcanvas"></canvas>
+  <canvas id="confetti"></canvas>
+  <div class="toast" id="toast"></div>
+  <div class="audio-hint" id="audioHint">🔊 Ketuk layar sekali untuk mengaktifkan suara</div>
+
+  <!-- START SCREEN -->
+  <div class="screen" id="startScreen">
+    <div class="emoji-big">⚡🔋💡</div>
+    <h1>Petualangan Energi</h1>
+    <p>Hidupkan semua bentuk energi dengan menjawab soal perubahan energi dengan benar! Setiap jawaban benar akan menyalakan satu energi dan memutar suaranya.</p>
+    <button class="btn" id="startBtn">🚀 Mulai Bermain</button>
+    <button class="btn" id="howBtn" style="background:rgba(255,255,255,0.12); box-shadow:none;">📖 Cara Bermain</button>
+  </div>
+
+  <!-- HOW TO PLAY -->
+  <div class="screen hidden" id="howScreen">
+    <div class="emoji-big">🎮</div>
+    <h1>Cara Bermain</h1>
+    <p style="text-align:left;">
+      1️⃣ Jawab 7 soal perubahan energi.<br><br>
+      2️⃣ Setiap jawaban <b style="color:#66bb6a">benar</b> akan menyalakan 1 ikon energi + efek suara khas.<br><br>
+      3️⃣ Jawaban <b style="color:#ef5350">salah</b> akan diberi penjelasan agar kamu paham.<br><br>
+      4️⃣ Jika semua energi menyala, kamu menang! 🎉
+    </p>
+    <button class="btn" id="backBtn">⬅️ Kembali</button>
+  </div>
+
+  <!-- WIN SCREEN -->
+  <div class="screen hidden" id="winScreen">
+    <div class="emoji-big">🏆</div>
+    <h1>Hebat! Kamu Menang!</h1>
+    <div class="stars" id="starsDisplay">⭐⭐⭐</div>
+    <p id="winMsg">Semua bentuk energi berhasil kamu hidupkan!</p>
+    <button class="btn gold" id="playAgainBtn">🔁 Main Lagi</button>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div id="gameScreen">
+    <header>
+      <div class="title">⚡ Petualangan Energi</div>
+      <div class="score-box">Skor: <span id="scoreVal">0</span></div>
+    </header>
+
+    <div class="progress-wrap">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+
+    <div class="energy-grid" id="energyGrid"></div>
+
+    <div class="qa-area">
+      <div class="question-card" id="questionCard">
+        <div class="q-text" id="qText"></div>
+        <div class="options" id="optionsBox"></div>
+        <div class="feedback" id="feedback"></div>
+        <button class="btn hidden" id="nextBtn" type="button">Soal Berikutnya ➡️</button>
+      </div>
+    </div>
+
+    <button class="restart-btn" id="restartBtn" title="Ulangi">↻</button>
+  </div>
+
+</div>
+
+<script>
+/* =========================================================
+   1. DATA SOAL & ENERGI
+   ========================================================= */
+const QUESTIONS = [
+  { q: "Lampu di kamar menyala terang saat sakelar ditekan. Perubahan energi apa yang terjadi?",
+    options: ["Listrik → Cahaya", "Cahaya → Listrik", "Kimia → Gerak", "Gerak → Bunyi"],
+    answer: 0, energyId: "lampu",
+    explain: "Lampu mengubah energi listrik menjadi energi cahaya sehingga ruangan menjadi terang." },
+  { q: "Kipas angin di kelas berputar sehingga udara menjadi sejuk. Perubahan energinya adalah...",
+    options: ["Listrik → Panas", "Listrik → Gerak", "Gerak → Bunyi", "Kimia → Cahaya"],
+    answer: 1, energyId: "kipas",
+    explain: "Energi listrik diubah menjadi energi gerak oleh motor kipas sehingga baling-baling berputar." },
+  { q: "Ibu menyetrika baju dan setrika menjadi panas. Energi listrik berubah menjadi energi...",
+    options: ["Bunyi", "Gerak", "Panas", "Cahaya"],
+    answer: 2, energyId: "setrika",
+    explain: "Setrika mengubah energi listrik menjadi energi panas untuk melicinkan pakaian." },
+  { q: "Setelah makan pagi, Rina bisa berlari kencang di lapangan. Perubahan energinya...",
+    options: ["Kimia → Gerak", "Listrik → Gerak", "Gerak → Panas", "Cahaya → Kimia"],
+    answer: 0, energyId: "berlari",
+    explain: "Makanan menyimpan energi kimia yang diubah tubuh menjadi energi gerak saat berlari." },
+  { q: "Gitar yang dipetik menghasilkan bunyi merdu. Perubahan energi yang terjadi adalah...",
+    options: ["Listrik → Bunyi", "Gerak → Bunyi", "Bunyi → Gerak", "Cahaya → Bunyi"],
+    answer: 1, energyId: "gitar",
+    explain: "Senar yang bergerak (energi gerak) menghasilkan getaran yang menjadi energi bunyi." },
+  { q: "Panel surya di atap rumah dapat menghasilkan listrik pada siang hari. Perubahan energinya...",
+    options: ["Listrik → Cahaya", "Panas → Listrik", "Cahaya → Listrik", "Kimia → Listrik"],
+    answer: 2, energyId: "surya",
+    explain: "Panel surya mengubah energi cahaya matahari menjadi energi listrik." },
+  { q: "Radio di ruang tamu mengeluarkan suara lagu. Energi listrik berubah menjadi energi...",
+    options: ["Cahaya", "Panas", "Bunyi", "Gerak"],
+    answer: 2, energyId: "radio",
+    explain: "Radio mengubah energi listrik menjadi energi bunyi melalui speaker." }
+];
+
+const ENERGY_META = {
+  lampu:   { emoji: "💡", label: "Lampu",   sound: "ding" },
+  kipas:   { emoji: "🌀", label: "Kipas",   sound: "fan" },
+  setrika: { emoji: "🔥", label: "Setrika", sound: "hiss" },
+  berlari: { emoji: "🏃", label: "Berlari", sound: "run" },
+  gitar:   { emoji: "🎸", label: "Gitar",   sound: "pluck" },
+  surya:   { emoji: "☀️", label: "Surya",   sound: "whoosh" },
+  radio:   { emoji: "📻", label: "Radio",   sound: "radio" }
+};
+
+/* =========================================================
+   2. JSON STORAGE
+   ========================================================= */
+const STORAGE_KEY = "petualangan_energi_v1";
+function defaultState() {
+  return { bestScore: 0, lastScore: 0, gamesPlayed: 0,
+           totalCorrect: 0, totalAnswered: 0, lastPlayed: null };
+}
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return defaultState();
+    return Object.assign(defaultState(), JSON.parse(raw));
+  } catch (e) { return defaultState(); }
+}
+function saveState(s) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch (e) {}
+}
+let appState = loadState();
+
+/* =========================================================
+   3. AUDIO SYNTH (diperbaiki: unlock pada gesture user)
+   ========================================================= */
+let audioCtx = null;
+let audioUnlocked = false;
+
+function ensureAudio() {
+  if (!audioCtx) {
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch (e) {
+      console.warn("AudioContext tidak didukung:", e);
+      return null;
+    }
+  }
+  if (audioCtx.state === "suspended") {
+    audioCtx.resume().then(() => { audioUnlocked = true; }).catch(() => {});
+  } else {
+    audioUnlocked = true;
+  }
+  return audioCtx;
+}
+
+// Unlock audio pada gesture pertama di mana pun
+function unlockAudioOnce() {
+  const ac = ensureAudio();
+  if (!ac) return;
+  if (ac.state === "suspended") ac.resume().catch(() => {});
+  // Putar buffer kosong untuk membuka jalur audio
+  try {
+    const buf = ac.createBuffer(1, 1, 22050);
+    const src = ac.createBufferSource();
+    src.buffer = buf;
+    src.connect(ac.destination);
+    src.start(0);
+  } catch (e) {}
+  document.getElementById("audioHint").classList.add("hidden");
+  document.removeEventListener("touchstart", unlockAudioOnce);
+  document.removeEventListener("click", unlockAudioOnce);
+}
+document.addEventListener("touchstart", unlockAudioOnce, { passive: true });
+document.addEventListener("click", unlockAudioOnce);
+
+function tone(freq, duration, type = "sine", gainVal = 0.15, delay = 0) {
+  const ac = ensureAudio();
+  if (!ac) return;
+  const osc = ac.createOscillator();
+  const gain = ac.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  gain.gain.value = 0;
+  const t0 = ac.currentTime + delay;
+  gain.gain.linearRampToValueAtTime(gainVal, t0 + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+  osc.connect(gain).connect(ac.destination);
+  osc.start(t0);
+  osc.stop(t0 + duration + 0.05);
+}
+
+function noiseBurst(duration, gainVal = 0.08, filterFreq = 1000) {
+  const ac = ensureAudio();
+  if (!ac) return;
+  const bufferSize = Math.max(1, Math.floor(ac.sampleRate * duration));
+  const buffer = ac.createBuffer(1, bufferSize, ac.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+  const src = ac.createBufferSource();
+  src.buffer = buffer;
+  const filter = ac.createBiquadFilter();
+  filter.type = "bandpass";
+  filter.frequency.value = filterFreq;
+  const gain = ac.createGain();
+  gain.gain.value = gainVal;
+  gain.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + duration);
+  src.connect(filter).connect(gain).connect(ac.destination);
+  src.start();
+  src.stop(ac.currentTime + duration);
+}
+
+const SOUNDS = {
+  ding()   { tone(1200, 0.25, "sine", 0.22); tone(1800, 0.3, "sine", 0.12, 0.05); },
+  fan()    { noiseBurst(1.2, 0.09, 400); tone(120, 1.2, "sawtooth", 0.04); },
+  hiss()   { noiseBurst(0.9, 0.12, 3000); },
+  run()    { tone(440, 0.12, "sine", 0.18); tone(523, 0.12, "sine", 0.18, 0.12); tone(659, 0.12, "sine", 0.18, 0.24); tone(784, 0.2, "sine", 0.18, 0.36); },
+  pluck()  { tone(330, 0.4, "triangle", 0.25); tone(440, 0.35, "triangle", 0.12, 0.02); },
+  whoosh() { noiseBurst(0.6, 0.1, 800); tone(700, 0.4, "sine", 0.1); },
+  radio()  { tone(523, 0.15, "sine", 0.18); tone(659, 0.15, "sine", 0.18, 0.15); tone(784, 0.15, "sine", 0.18, 0.3); tone(1046, 0.25, "sine", 0.18, 0.45); },
+  correct(){ tone(659, 0.1, "sine", 0.2); tone(880, 0.18, "sine", 0.22, 0.1); },
+  wrong()  { tone(220, 0.25, "sawtooth", 0.18); tone(180, 0.3, "sawtooth", 0.15, 0.15); },
+  win()    {
+    const notes = [523, 659, 784, 1046, 1318];
+    notes.forEach((f, i) => tone(f, 0.25, "triangle", 0.2, i * 0.14));
+    tone(1568, 0.6, "triangle", 0.22, notes.length * 0.14);
+    noiseBurst(0.5, 0.06, 2000);
+  }
+};
+
+/* =========================================================
+   4. WEBGL BACKGROUND
+   ========================================================= */
+(function initWebGL() {
+  const canvas = document.getElementById("glcanvas");
+  const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+  if (!gl) { canvas.style.display = "none"; return; }
+
+  function resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.max(1, canvas.clientWidth * dpr);
+    canvas.height = Math.max(1, canvas.clientHeight * dpr);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+  }
+  window.addEventListener("resize", resize);
+
+  const vsSource = `attribute vec2 aPos; void main(){ gl_Position = vec4(aPos,0.0,1.0); }`;
+  const fsSource = `
+    precision mediump float;
+    uniform vec2 uRes; uniform float uTime; uniform float uEnergy;
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
+    float noise(vec2 p){
+      vec2 i=floor(p), f=fract(p);
+      float a=hash(i), b=hash(i+vec2(1,0)), c=hash(i+vec2(0,1)), d=hash(i+vec2(1,1));
+      vec2 u=f*f*(3.0-2.0*f);
+      return mix(a,b,u.x)+(c-a)*u.y*(1.0-u.x)+(d-b)*u.x*u.y;
+    }
+    void main(){
+      vec2 uv = gl_FragCoord.xy / uRes.xy;
+      vec2 p = uv * 3.0;
+      float t = uTime * 0.4;
+      float n = noise(p + vec2(t, -t*0.7));
+      n += 0.5 * noise(p*2.0 - vec2(t*1.3, t));
+      n /= 1.5;
+      vec3 c1=vec3(0.04,0.06,0.16), c2=vec3(0.10,0.14,0.35), c3=vec3(0.25,0.15,0.45);
+      vec3 col = mix(c1,c2,n);
+      col = mix(col, c3, smoothstep(0.55,0.95,n)*(0.4+uEnergy*0.5));
+      float star = pow(hash(floor(gl_FragCoord.xy/3.0)), 60.0);
+      col += star * vec3(0.6,0.7,1.0) * (0.3+uEnergy);
+      float d = distance(uv, vec2(0.5));
+      col *= smoothstep(1.0,0.25,d)*0.9+0.25;
+      gl_FragColor = vec4(col,1.0);
+    }`;
+
+  function compile(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.warn(gl.getShaderInfoLog(s)); return null; }
+    return s;
+  }
+  const vs = compile(gl.VERTEX_SHADER, vsSource);
+  const fs = compile(gl.FRAGMENT_SHADER, fsSource);
+  if (!vs || !fs) { canvas.style.display = "none"; return; }
+
+  const prog = gl.createProgram();
+  gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) { canvas.style.display = "none"; return; }
+  gl.useProgram(prog);
+
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+    -1,-1, 1,-1, -1,1,  -1,1, 1,-1, 1,1
+  ]), gl.STATIC_DRAW);
+
+  const aPos = gl.getAttribLocation(prog, "aPos");
+  gl.enableVertexAttribArray(aPos);
+  gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+  const uRes = gl.getUniformLocation(prog, "uRes");
+  const uTime = gl.getUniformLocation(prog, "uTime");
+  const uEnergy = gl.getUniformLocation(prog, "uEnergy");
+
+  resize();
+  let start = performance.now();
+  let energyLevel = 0;
+  window.setEnergyLevel = (v) => { energyLevel = v; };
+
+  function render(now) {
+    const t = (now - start) / 1000;
+    gl.uniform2f(uRes, canvas.width, canvas.height);
+    gl.uniform1f(uTime, t);
+    gl.uniform1f(uEnergy, energyLevel);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+    requestAnimationFrame(render);
+  }
+  requestAnimationFrame(render);
+})();
+
+/* =========================================================
+   5. CONFETTI
+   ========================================================= */
+const confettiCanvas = document.getElementById("confetti");
+const cctx = confettiCanvas.getContext("2d");
+let confettiParticles = [];
+let confettiRunning = false;
+
+function resizeConfetti() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  confettiCanvas.width = Math.max(1, confettiCanvas.clientWidth * dpr);
+  confettiCanvas.height = Math.max(1, confettiCanvas.clientHeight * dpr);
+}
+window.addEventListener("resize", resizeConfetti);
+resizeConfetti();
+
+function launchConfetti(count = 120) {
+  const w = confettiCanvas.width, h = confettiCanvas.height;
+  const colors = ["#ffd54f","#4fc3f7","#ff8a65","#81c784","#ba68c8","#fff"];
+  for (let i = 0; i < count; i++) {
+    confettiParticles.push({
+      x: Math.random() * w,
+      y: -20 - Math.random() * h * 0.4,
+      vx: (Math.random() - 0.5) * 4 * (w/800),
+      vy: 2 + Math.random() * 4,
+      size: 4 + Math.random() * 6,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      rot: Math.random() * Math.PI,
+      vr: (Math.random() - 0.5) * 0.3,
+      life: 1
+    });
+  }
+  if (!confettiRunning) { confettiRunning = true; requestAnimationFrame(confettiLoop); }
+}
+
+function confettiLoop() {
+  cctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+  confettiParticles.forEach(p => {
+    p.x += p.vx; p.y += p.vy; p.vy += 0.06;
+    p.rot += p.vr; p.life -= 0.006;
+    cctx.save();
+    cctx.translate(p.x, p.y);
+    cctx.rotate(p.rot);
+    cctx.globalAlpha = Math.max(0, p.life);
+    cctx.fillStyle = p.color;
+    cctx.fillRect(-p.size/2, -p.size/2, p.size, p.size * 0.6);
+    cctx.restore();
+  });
+  confettiParticles = confettiParticles.filter(p => p.life > 0 && p.y < confettiCanvas.height + 40);
+  if (confettiParticles.length > 0) {
+    requestAnimationFrame(confettiLoop);
+  } else {
+    confettiRunning = false;
+    cctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+  }
+}
+
+/* =========================================================
+   6. GAME LOGIC
+   ========================================================= */
+const startScreen = document.getElementById("startScreen");
+const howScreen = document.getElementById("howScreen");
+const winScreen = document.getElementById("winScreen");
+const gameScreen = document.getElementById("gameScreen");
+const energyGrid = document.getElementById("energyGrid");
+const qText = document.getElementById("qText");
+const optionsBox = document.getElementById("optionsBox");
+const feedback = document.getElementById("feedback");
+const nextBtn = document.getElementById("nextBtn");
+const progressBar = document.getElementById("progressBar");
+const scoreVal = document.getElementById("scoreVal");
+const restartBtn = document.getElementById("restartBtn");
+const toast = document.getElementById("toast");
+
+let currentIndex = 0;
+let score = 0;
+let correctCount = 0;
+let locked = false;
+let activeEnergies = new Set();
+
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.classList.add("show");
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => toast.classList.remove("show"), 1800);
+}
+
+function buildEnergyGrid() {
+  energyGrid.innerHTML = "";
+  Object.keys(ENERGY_META).forEach(id => {
+    const meta = ENERGY_META[id];
+    const div = document.createElement("div");
+    div.className = "energy-icon";
+    div.id = "energy-" + id;
+    div.innerHTML = `<div>${meta.emoji}</div><div class="label">${meta.label}</div>`;
+    energyGrid.appendChild(div);
+  });
+}
+
+function activateEnergy(id) {
+  const el = document.getElementById("energy-" + id);
+  if (!el || el.classList.contains("active")) return;
+  el.classList.add("active");
+  activeEnergies.add(id);
+  const meta = ENERGY_META[id];
+  if (meta && SOUNDS[meta.sound]) SOUNDS[meta.sound]();
+  if (window.setEnergyLevel) {
+    window.setEnergyLevel(Math.min(activeEnergies.size / 7, 1));
+  }
+}
+
+function renderQuestion() {
+  locked = false;
+  const q = QUESTIONS[currentIndex];
+  qText.innerHTML = `<span class="num">Soal ${currentIndex + 1}/7</span>${q.q}`;
+  optionsBox.innerHTML = "";
+  feedback.className = "feedback";
+  feedback.innerHTML = "";
+  nextBtn.classList.add("hidden");
+
+  q.options.forEach((opt, i) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "option";
+    btn.innerHTML = `<span class="bullet">${String.fromCharCode(65 + i)}</span><span>${opt}</span>`;
+    btn.addEventListener("click", () => handleAnswer(i, btn));
+    optionsBox.appendChild(btn);
+  });
+}
+
+function handleAnswer(selected, btnEl) {
+  if (locked) return;
+  locked = true;
+
+  const q = QUESTIONS[currentIndex];
+  const allOptions = optionsBox.querySelectorAll(".option");
+  allOptions.forEach(o => o.classList.add("disabled"));
+
+  appState.totalAnswered++;
+
+  if (selected === q.answer) {
+    btnEl.classList.add("correct");
+    SOUNDS.correct();
+    score += 10;
+    correctCount++;
+    appState.totalCorrect++;
+    scoreVal.textContent = score;
+
+    activateEnergy(q.energyId);
+
+    feedback.className = "feedback ok show";
+    feedback.innerHTML = `✅ <b>Benar!</b> ${q.explain}`;
+
+    const progress = (activeEnergies.size / 7) * 100;
+    progressBar.style.width = progress + "%";
+
+    showToast(`⚡ ${ENERGY_META[q.energyId].label} menyala!`);
+  } else {
+    btnEl.classList.add("wrong");
+    allOptions[q.answer].classList.add("correct");
+    SOUNDS.wrong();
+
+    feedback.className = "feedback no show";
+    feedback.innerHTML = `❌ <b>Belum tepat.</b> Jawaban yang benar: <b>${q.options[q.answer]}</b>.<br>${q.explain}`;
+  }
+
+  nextBtn.classList.remove("hidden");
+  nextBtn.textContent = (currentIndex === QUESTIONS.length - 1)
+    ? "Lihat Hasil 🏁"
+    : "Soal Berikutnya ➡️";
+
+  // Scroll ke bawah supaya tombol terlihat (mobile)
+  setTimeout(() => {
+    nextBtn.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, 100);
+}
+
+/* ---- Tombol next: pasang SATU KALI saja di awal, gunakan flag ---- */
+nextBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  if (!locked && currentIndex === 0 && score === 0) return; // guard
+  if (currentIndex < QUESTIONS.length - 1) {
+    currentIndex++;
+    renderQuestion();
+  } else {
+    finishGame();
+  }
+});
+
+function finishGame() {
+  appState.lastScore = score;
+  appState.gamesPlayed++;
+  if (score > appState.bestScore) appState.bestScore = score;
+  appState.lastPlayed = new Date().toISOString();
+  saveState(appState);
+
+  let stars = 1;
+  if (correctCount >= 5) stars = 2;
+  if (correctCount === 7) stars = 3;
+
+  document.getElementById("starsDisplay").textContent =
+    "⭐".repeat(stars) + "☆".repeat(3 - stars);
+  document.getElementById("winMsg").innerHTML =
+    `Kamu menjawab <b>${correctCount} dari 7</b> soal dengan benar.<br>` +
+    `Skor: <b>${score}</b> • Skor terbaik: <b>${appState.bestScore}</b>`;
+
+  gameScreen.classList.remove("show");
+  gameScreen.style.display = "none";
+  winScreen.classList.remove("hidden");
+
+  if (correctCount >= 5) {
+    SOUNDS.win();
+    launchConfetti(correctCount === 7 ? 180 : 100);
+  }
+  if (window.setEnergyLevel) window.setEnergyLevel(1);
+}
+
+function startGame() {
+  ensureAudio(); // penting: init audio saat user klik Mulai
+
+  currentIndex = 0;
+  score = 0;
+  correctCount = 0;
+  locked = false;
+  activeEnergies = new Set();
+  scoreVal.textContent = "0";
+  progressBar.style.width = "0%";
+  if (window.setEnergyLevel) window.setEnergyLevel(0);
+
+  buildEnergyGrid();
+  startScreen.classList.add("hidden");
+  howScreen.classList.add("hidden");
+  winScreen.classList.add("hidden");
+  gameScreen.classList.add("show");
+  gameScreen.style.display = "flex";
+  restartBtn.classList.add("show");
+
+  renderQuestion();
+}
+
+/* =========================================================
+   7. EVENT LISTENERS
+   ========================================================= */
+document.getElementById("startBtn").addEventListener("click", () => {
+  unlockAudioOnce();
+  startGame();
+});
+document.getElementById("playAgainBtn").addEventListener("click", startGame);
+document.getElementById("howBtn").addEventListener("click", () => {
+  startScreen.classList.add("hidden");
+  howScreen.classList.remove("hidden");
+});
+document.getElementById("backBtn").addEventListener("click", () => {
+  howScreen.classList.add("hidden");
+  startScreen.classList.remove("hidden");
+});
+restartBtn.addEventListener("click", () => {
+  if (confirm("Ulangi permainan dari awal?")) startGame();
+});
+
+// Prevent scroll bounce
+document.addEventListener("touchmove", e => {
+  if (e.target === document.body) e.preventDefault();
+}, { passive: false });
+</script>
+</body>
+</html>
